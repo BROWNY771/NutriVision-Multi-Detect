@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% block title %}Mon Profil — NutriVision Pro{% endblock %}
+
+{% block head %}
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+
+{% set filled = [] %}
+{% if current_user.age    %} {% set _ = filled.append(1) %} {% endif %}
+{% if current_user.poids  %} {% set _ = filled.append(1) %} {% endif %}
+{% if current_user.taille %} {% set _ = filled.append(1) %} {% endif %}
+{% if current_user.sexe   %} {% set _ = filled.append(1) %} {% endif %}
+{% if current_user.allergies %} {% set _ = filled.append(1) %} {% endif %}
+{% if current_user.maladies  %} {% set _ = filled.append(1) %} {% endif %}
+{% set pct = ((filled | length) / 6 * 100) | int %}
+
+<div class="row justify-content-center">
+<div class="col-xl-9 col-lg-11">
+
+  <div class="profile-header mb-4">
+    <div class="d-flex align-items-center gap-3">
+      <div class="avatar-circle">{{ current_user.username[0].upper() }}</div>
+      <div>
+        <h1>{{ current_user.username }}</h1>
+        <p>Profil de santé &amp; informations personnelles</p>
+      </div>
+      <div class="ms-auto text-end">
+        <div class="completeness-label text-white-50 mb-1">Profil complété à {{ pct }}%</div>
+        <div class="completeness-bar" style="width:140px;">
+          <div class="completeness-fill" style="width:{{ pct }}%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bmr-banner mb-4">
+    <div>
+      <div class="bmr-label">Besoins caloriques journaliers (Harris-Benedict)</div>
+      <div class="d-flex align-items-end gap-2 mt-1">
+        <div class="bmr-value" id="bmr-display">{{ current_user.get_besoins_caloriques() | int }}</div>
+        <div class="bmr-unit mb-1">kcal / jour</div>
+      </div>
+      <div class="bmr-breakdown" id="bmr-breakdown">
+        {% if current_user.profile_complete() %}
+          Calculé · {{ current_user.poids }}kg · {{ current_user.taille }}cm · {{ current_user.age }} ans · {{ 'Homme' if current_user.sexe == 'H' else 'Femme' }}
+        {% else %}
+          Valeur par défaut — complétez votre profil pour un calcul précis
+        {% endif %}
+      </div>
+    </div>
+    {% if current_user.profile_complete() %}
+    <div class="d-flex gap-3">
+      <div class="stat-pill" style="background:rgba(255,255,255,0.12); border-color:rgba(255,255,255,0.2);">
+        <div class="sp-value text-white">{{ ((current_user.get_besoins_caloriques()) / 4) | int }}</div>
+        <div class="sp-label text-white-50">kcal / repas</div>
+      </div>
+      <div class="stat-pill" style="background:rgba(255,255,255,0.12); border-color:rgba(255,255,255,0.2);">
+        <div class="sp-value text-white">
+          {% if current_user.poids and current_user.taille %}
+            {{ ((current_user.poids) / ((current_user.taille/100) ** 2)) | round(1) }}
+          {% else %}—{% endif %}
+        </div>
+        <div class="sp-label text-white-50">IMC</div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <form method="POST" action="{{ url_for('main.profile') }}" id="profile-form">
+
+    <div class="section-card">
+      <div class="section-title"><i class="bi bi-person-vcard"></i> Informations biométriques</div>
+      <div class="row g-3">
+
+        <div class="col-sm-4">
+          <label class="form-label">Âge</label>
+          <div class="input-with-unit">
+            <input type="number" name="age" id="inp-age" class="form-control" min="10" max="110"
+                   placeholder="25" value="{{ current_user.age or '' }}">
+            <span class="input-unit">ans</span>
+          </div>
+        </div>
+
+        <div class="col-sm-4">
+          <label class="form-label">Poids</label>
+          <div class="input-with-unit">
+            <input type="number" name="poids" id="inp-poids" class="form-control" min="20" max="300" step="0.1"
+                   placeholder="70" value="{{ current_user.poids or '' }}">
+            <span class="input-unit">kg</span>
+          </div>
+        </div>
+
+        <div class="col-sm-4">
+          <label class="form-label">Taille</label>
+          <div class="input-with-unit">
+            <input type="number" name="taille" id="inp-taille" class="form-control" min="100" max="250"
+                   placeholder="175" value="{{ current_user.taille or '' }}">
+            <span class="input-unit">cm</span>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <label class="form-label">Sexe biologique</label>
+          <input type="hidden" name="sexe" id="sexe-hidden" value="{{ current_user.sexe or 'H' }}">
+          <div class="gender-toggle">
+            <div class="gender-btn {{ 'active' if (current_user.sexe or 'H') == 'H' else '' }}"
+                 onclick="setGender('H', this)">
+              <i class="bi bi-gender-male me-2"></i>Homme
+            </div>
+            <div class="gender-btn {{ 'active' if current_user.sexe == 'F' else '' }}"
+                 onclick="setGender('F', this)">
+              <i class="bi bi-gender-female me-2"></i>Femme
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="section-card">
+      <div class="section-title"><i class="bi bi-shield-exclamation"></i> Allergies alimentaires</div>
+      <label class="form-label">Aliments à éviter</label>
+
+      <div class="tag-input-wrapper" id="allergy-wrapper" onclick="document.getElementById('allergy-input').focus()">
+        <div id="allergy-tags"></div>
+        <input type="text" id="allergy-input" class="tag-type-input" placeholder="Ex: arachides, lait…">
+      </div>
+      <div class="tag-hint"><i class="bi bi-return-left me-1"></i>Appuyez sur Entrée ou virgule pour ajouter</div>
+      <input type="hidden" name="allergies" id="allergy-hidden" value="{{ current_user.allergies or '' }}">
+    </div>
+
+    <div class="section-card">
+      <div class="section-title"><i class="bi bi-heart-pulse"></i> Conditions médicales</div>
+      <label class="form-label">Maladies chroniques</label>
+
+      <div class="tag-input-wrapper" id="disease-wrapper" onclick="document.getElementById('disease-input').focus()">
+        <div id="disease-tags"></div>
+        <input type="text" id="disease-input" class="tag-type-input" placeholder="Ex: diabète, hypertension…">
+      </div>
+      <div class="tag-hint"><i class="bi bi-return-left me-1"></i>Appuyez sur Entrée ou virgule pour ajouter</div>
+      <input type="hidden" name="maladies" id="disease-hidden" value="{{ current_user.maladies or '' }}">
+    </div>
+
+    <div class="d-flex align-items-center gap-3 pb-3">
+      <button type="submit" class="btn btn-save">
+        <i class="bi bi-check-lg me-2"></i>Sauvegarder le profil
+      </button>
+      <a href="{{ url_for('main.index') }}" class="btn btn-link text-muted text-decoration-none">Annuler</a>
+    </div>
+
+  </form>
+
+</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function setGender(val, el) {
+  document.getElementById('sexe-hidden').value = val;
+  document.querySelectorAll('.gender-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  updateBMR();
+}
+
+function updateBMR() {
+  const age    = parseFloat(document.getElementById('inp-age').value)   || 0;
+  const poids  = parseFloat(document.getElementById('inp-poids').value) || 0;
+  const taille = parseFloat(document.getElementById('inp-taille').value)|| 0;
+  const sexe   = document.getElementById('sexe-hidden').value;
+
+  let bmr = 2200;
+  if (age && poids && taille) {
+    if (sexe === 'H') {
+      bmr = (13.397 * poids) + (4.799 * taille) - (5.677 * age) + 88.362;
+    } else {
+      bmr = (9.247  * poids) + (3.098 * taille) - (4.330 * age) + 447.593;
+    }
+  }
+
+  document.getElementById('bmr-display').textContent = Math.round(bmr).toLocaleString('fr-FR');
+  document.getElementById('bmr-breakdown').textContent =
+    (age && poids && taille)
+      ? `Calculé · ${poids}kg · ${taille}cm · ${age} ans · ${sexe === 'H' ? 'Homme' : 'Femme'}`
+      : 'Valeur par défaut — complétez votre profil pour un calcul précis';
+}
+
+['inp-age','inp-poids','inp-taille'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateBMR);
+});
+
+function makeTagSystem(wrapperId, inputId, hiddenId, colorClass) {
+  const hidden  = document.getElementById(hiddenId);
+  const input   = document.getElementById(inputId);
+  const tagsDiv = document.getElementById(wrapperId).querySelector('div');
+
+  let tags = (hidden.value || '').split(',').map(t => t.trim()).filter(Boolean);
+
+  function render() {
+    tagsDiv.innerHTML = '';
+    tags.forEach((tag, i) => {
+      const el = document.createElement('span');
+      el.className = `tag ${colorClass || ''}`;
+      el.innerHTML = `${tag} <span class="tag-remove" data-i="${i}">&times;</span>`;
+      el.querySelector('.tag-remove').addEventListener('click', () => {
+        tags.splice(i, 1); render(); sync();
+      });
+      tagsDiv.appendChild(el);
+    });
+  }
+
+  function sync() { hidden.value = tags.join(', '); }
+
+  function addTag(raw) {
+    const val = raw.trim().toLowerCase();
+    if (val && !tags.includes(val)) { tags.push(val); render(); sync(); }
+  }
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addTag(input.value.replace(',', ''));
+      input.value = '';
+    } else if (e.key === 'Backspace' && input.value === '' && tags.length) {
+      tags.pop(); render(); sync();
+    }
+  });
+  input.addEventListener('blur', () => {
+    if (input.value.trim()) { addTag(input.value); input.value = ''; }
+  });
+
+  render();
+}
+
+makeTagSystem('allergy-wrapper', 'allergy-input', 'allergy-hidden', '');
+makeTagSystem('disease-wrapper', 'disease-input', 'disease-hidden', 'danger');
+</script>
+{% endblock %}

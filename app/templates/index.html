@@ -1,0 +1,339 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — NutriVision Pro{% endblock %}
+
+{% block head %}
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+
+{% set bmr      = current_user.get_besoins_caloriques() %}
+{% set meal_pct = ((total_calories / bmr * 100) | round(1)) if total_calories else 0 %}
+
+<div class="stat-grid">
+  <div class="stat-card teal" style="animation-delay:.05s">
+    <div class="sc-icon"><i class="bi bi-fire"></i></div>
+    <div class="sc-value">{{ bmr | int }}</div>
+    <div class="sc-label">kcal / jour</div>
+  </div>
+  <div class="stat-card amber" style="animation-delay:.1s">
+    <div class="sc-icon"><i class="bi bi-camera"></i></div>
+    <div class="sc-value">{{ history | length }}</div>
+    <div class="sc-label">Scans récents</div>
+  </div>
+  <div class="stat-card {{ 'rose' if meal_pct > 50 else 'teal' }}" style="animation-delay:.15s">
+    <div class="sc-icon"><i class="bi bi-pie-chart"></i></div>
+    <div class="sc-value">{{ meal_pct | int }}%</div>
+    <div class="sc-label">Dernier repas</div>
+  </div>
+</div>
+
+{% if not current_user.profile_complete() %}
+<div class="nudge-card">
+  <div class="nc-icon"><i class="bi bi-person-gear"></i></div>
+  <div>
+    <p><strong style="color:#fff">Profil incomplet</strong> — les alertes personnalisées nécessitent votre profil santé.</p>
+    <p><a href="{{ url_for('main.profile') }}">Compléter mon profil →</a></p>
+  </div>
+</div>
+{% endif %}
+
+<div class="row g-4">
+
+  <div class="col-lg-8">
+
+    <div class="dash-card" style="animation-delay:.1s">
+      <div class="dash-card-header"><i class="bi bi-camera text-info"></i> Analyser un repas</div>
+      <div class="dash-card-body">
+        <form id="upload-form" method="POST" action="{{ url_for('main.index') }}" enctype="multipart/form-data">
+          <div class="upload-zone" id="upload-zone">
+            <input type="file" id="file-input" name="image" accept=".jpg,.jpeg,.png,.webp" required>
+            <div class="uz-icon"><i class="bi bi-cloud-arrow-up"></i></div>
+            <div class="uz-title">Glissez une photo ou cliquez pour choisir</div>
+            <div class="uz-sub">JPG, PNG, WEBP · max 10 MB</div>
+          </div>
+          <div class="file-preview" id="file-preview">
+            <img id="preview-img" src="" alt="">
+            <div>
+              <div class="fp-name" id="preview-name"></div>
+              <div class="fp-size" id="preview-size"></div>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-analyze mt-3" id="btn-analyze" disabled>
+            <i class="bi bi-search me-2"></i>Lancer l'analyse IA
+          </button>
+        </form>
+      </div>
+    </div>
+
+    {% if image_url %}
+    <div class="dash-card" style="animation-delay:.15s">
+      <div class="dash-card-header"><i class="bi bi-list-check text-info"></i> Résultats de l'analyse</div>
+      <div class="dash-card-body">
+
+        {% if alerts %}
+        <div class="alert-box danger">
+          <div class="alert-box-title">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ alerts|length }} alerte(s) détectée(s)
+          </div>
+          {% for a in alerts %}
+          <div class="alert-item">{{ a }}</div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="alert-box success">
+          <div class="alert-box-title"><i class="bi bi-check-circle-fill me-2"></i>Aucune alerte</div>
+          <div class="alert-item">Ce repas ne présente aucun risque détecté pour votre profil.</div>
+        </div>
+        {% endif %}
+
+        <div class="row g-3 mt-1">
+
+          <div class="col-md-5">
+            <img src="{{ image_url }}" class="result-image" alt="Repas analysé">
+
+            {% if total_calories %}
+            {% set rp    = [meal_pct, 100] | min %}
+            {% set circ  = 276.46 %}
+            {% set offset= circ - (rp / 100 * circ) %}
+            <div class="ring-wrap mt-3">
+              <svg width="120" height="120" viewBox="0 0 120 120">
+                <circle cx="60" cy="60" r="44" fill="none" stroke="#f3f4f6" stroke-width="10"/>
+                <circle cx="60" cy="60" r="44" fill="none"
+                  stroke="{{ '#f43f5e' if rp > 50 else '#0dcaf0' }}"
+                  stroke-width="10" stroke-linecap="round"
+                  stroke-dasharray="{{ circ }}"
+                  stroke-dashoffset="{{ offset }}"/>
+              </svg>
+              <div class="ring-text">
+                <div class="rv">{{ rp|int }}%</div>
+                <div class="rl">du besoin</div>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+
+          <div class="col-md-7">
+            {% if results %}
+              {% for item in results %}
+              <div class="food-row">
+                <div>
+                  <div class="food-name">{{ item.name }}</div>
+                  <div class="food-qty">× {{ item.quantity }} portion(s)</div>
+                </div>
+                <div class="food-kcal">
+                  {{ ((item.nutrition['calories'] | default(0)) * item.quantity) | round(1) }} kcal
+                </div>
+              </div>
+              {% endfor %}
+
+              <div class="total-row">
+                <span>Total repas</span>
+                <span class="total-kcal">{{ total_calories | round(1) }} kcal</span>
+              </div>
+
+              {% if comparison %}
+              <div class="mt-4">
+                <div style="font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#9ca3af;margin-bottom:.9rem;">
+                  Macronutriments vs besoins journaliers
+                </div>
+
+                {% set p = comparison.protein %}
+                <div class="macro-bar">
+                  <div class="macro-bar-label">
+                    <span class="name">Protéines</span>
+                    <span>
+                      <span class="value">{{ p.consumed }}g / {{ p.target }}g</span>
+                      <span class="status-badge status-{{ p.status }}">{{ p.pct }}%</span>
+                    </span>
+                  </div>
+                  <div class="bar-track">
+                    <div class="bar-fill" style="width:{{ [p.pct, 100]|min }}%;background:#0dcaf0"></div>
+                  </div>
+                </div>
+
+                {% set c = comparison.carbs %}
+                <div class="macro-bar">
+                  <div class="macro-bar-label">
+                    <span class="name">Glucides</span>
+                    <span>
+                      <span class="value">{{ c.consumed }}g / {{ c.target }}g</span>
+                      <span class="status-badge status-{{ c.status }}">{{ c.pct }}%</span>
+                    </span>
+                  </div>
+                  <div class="bar-track">
+                    <div class="bar-fill" style="width:{{ [c.pct, 100]|min }}%;background:#f59e0b"></div>
+                  </div>
+                </div>
+
+                {% set f = comparison.fat %}
+                <div class="macro-bar">
+                  <div class="macro-bar-label">
+                    <span class="name">Lipides</span>
+                    <span>
+                      <span class="value">{{ f.consumed }}g / {{ f.target }}g</span>
+                      <span class="status-badge status-{{ f.status }}">{{ f.pct }}%</span>
+                    </span>
+                  </div>
+                  <div class="bar-track">
+                    <div class="bar-fill" style="width:{{ [f.pct, 100]|min }}%;background:#8b5cf6"></div>
+                  </div>
+                </div>
+
+              </div>
+              {% endif %}
+
+            {% else %}
+              <div class="text-center py-4">
+                <i class="bi bi-search text-muted" style="font-size:2rem"></i>
+                <p class="text-muted small mt-2 mb-0">
+                  Aucun aliment reconnu.<br>Essayez avec une photo plus nette.
+                </p>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <div class="col-lg-4">
+
+    <div class="dash-card" style="animation-delay:.2s">
+      <div class="dash-card-header"><i class="bi bi-fire text-info"></i> Besoins journaliers</div>
+      <div class="dash-card-body text-center">
+        <div style="font-size:2.8rem;font-weight:800;color:#1a1d20;font-family:'DM Mono',monospace;line-height:1">
+          {{ bmr|int }}
+        </div>
+        <div style="font-size:.82rem;color:#9ca3af;margin-bottom:1.25rem">kcal par jour</div>
+        <div class="row g-2">
+          <div class="col-4">
+            <div style="background:#f8fafc;border-radius:10px;padding:.65rem .3rem">
+              <div style="font-size:1rem;font-weight:700;font-family:'DM Mono',monospace;color:#0dcaf0">
+                {{ (bmr/4)|int }}
+              </div>
+              <div style="font-size:.65rem;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px">/ repas</div>
+            </div>
+          </div>
+          <div class="col-4">
+            <div style="background:#f8fafc;border-radius:10px;padding:.65rem .3rem">
+              <div style="font-size:1rem;font-weight:700;font-family:'DM Mono',monospace;color:#f59e0b">
+                {{ (bmr*7)|int }}
+              </div>
+              <div style="font-size:.65rem;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px">/ semaine</div>
+            </div>
+          </div>
+          <div class="col-4">
+            <div style="background:#f8fafc;border-radius:10px;padding:.65rem .3rem">
+              {% if current_user.poids and current_user.taille %}
+              <div style="font-size:1rem;font-weight:700;font-family:'DM Mono',monospace;color:#8b5cf6">
+                {{ (current_user.poids / ((current_user.taille / 100) ** 2)) | round(1) }}
+              </div>
+              {% else %}
+              <div style="font-size:1rem;font-weight:700;color:#d1d5db">—</div>
+              {% endif %}
+              <div style="font-size:.65rem;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px">IMC</div>
+            </div>
+          </div>
+        </div>
+        {% if not current_user.profile_complete() %}
+        <a href="{{ url_for('main.profile') }}"
+           class="btn btn-outline-secondary btn-sm mt-3 w-100"
+           style="border-radius:10px;font-size:.8rem">
+          <i class="bi bi-person-gear me-1"></i>Compléter le profil
+        </a>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if recommendations %}
+    <div class="dash-card" style="animation-delay:.22s">
+      <div class="dash-card-header">
+        <i class="bi bi-lightbulb text-info"></i> Recommandations
+      </div>
+      <div class="dash-card-body" style="padding-top:.75rem">
+        {% for r in recommendations %}
+        <div class="reco-item">{{ r }}</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="dash-card" style="animation-delay:.25s">
+      <div class="dash-card-header"><i class="bi bi-clock-history text-info"></i> Historique récent</div>
+      <div class="dash-card-body" style="padding-top:.75rem">
+        {% if history %}
+          {% for scan in history %}
+          {% set has_alerts = scan.get_alerts_list()|length > 0 %}
+          <div class="history-item">
+            <div class="history-dot {{ 'warn' if has_alerts else '' }}">
+              <i class="bi {{ 'bi-exclamation-triangle-fill' if has_alerts else 'bi-check2' }}"></i>
+            </div>
+            <div style="flex:1;overflow:hidden">
+              <div class="history-food" title="{{ scan.food_list }}">{{ scan.food_list }}</div>
+              <div class="history-time">{{ scan.timestamp.strftime('%d/%m · %H:%M') }}</div>
+            </div>
+            <div class="history-kcal">
+              {{ scan.total_calories|int }}<span style="font-size:.65rem;font-weight:400;color:#9ca3af"> kcal</span>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="text-center py-4">
+            <i class="bi bi-inbox text-muted" style="font-size:2rem"></i>
+            <p class="text-muted small mt-2 mb-0">
+              Aucune analyse effectuée.<br>Uploadez une photo pour commencer.
+            </p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const fileInput  = document.getElementById('file-input');
+const preview    = document.getElementById('file-preview');
+const previewImg = document.getElementById('preview-img');
+const previewNm  = document.getElementById('preview-name');
+const previewSz  = document.getElementById('preview-size');
+const btnAnalyze = document.getElementById('btn-analyze');
+const uploadZone = document.getElementById('upload-zone');
+
+function showPreview(file) {
+  const reader = new FileReader();
+  reader.onload = e => { previewImg.src = e.target.result; };
+  reader.readAsDataURL(file);
+  previewNm.textContent = file.name;
+  previewSz.textContent = (file.size / 1024).toFixed(1) + ' KB';
+  preview.classList.add('show');
+  btnAnalyze.disabled = false;
+}
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) showPreview(fileInput.files[0]);
+});
+
+uploadZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  uploadZone.classList.add('dragging');
+});
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragging'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('dragging');
+  const f = e.dataTransfer.files[0];
+  if (f) { fileInput.files = e.dataTransfer.files; showPreview(f); }
+});
+
+document.getElementById('upload-form').addEventListener('submit', () => {
+  const ov = document.getElementById('loading-overlay');
+  if (ov) ov.classList.add('active');
+});
+</script>
+{% endblock %}

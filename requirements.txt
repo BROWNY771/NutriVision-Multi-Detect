@@ -1,0 +1,14 @@
+flask
+flask-sqlalchemy
+ultralytics
+pandas
+opencv-python
+pillow
+flask
+ultralytics
+kagglehub
+pandas
+flask-login
+kagglehub
+pillow
+python-dotenv
