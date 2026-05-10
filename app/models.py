@@ -16,8 +16,19 @@ class User(UserMixin, db.Model):
     maladies = db.Column(db.Text, default="")
     allergies = db.Column(db.Text, default="")
 
-    scans = db.relationship('Scan', backref='owner', lazy='select', cascade="all, delete-orphan")
+    calories_consumed = db.Column(db.Float, default=0.0)
+    last_reset = db.Column(db.DateTime, default=datetime.utcnow)
+    daily_goal = db.Column(db.Float, default=2000.0)
 
+    scans = db.relationship('Scan', backref='owner', lazy='select', cascade="all, delete-orphan")
+    def check_daily_reset(self):
+        """Réinitialise les calories si nous sommes un nouveau jour."""
+        now = datetime.utcnow()
+        if self.last_reset.date() < now.date():
+            self.calories_consumed = 0.0
+            self.last_reset = now
+            return True
+        return False
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 

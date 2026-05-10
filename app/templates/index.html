@@ -9,22 +9,28 @@
 
 {% set bmr      = current_user.get_besoins_caloriques() %}
 {% set meal_pct = ((total_calories / bmr * 100) | round(1)) if total_calories else 0 %}
-
+{% set consumed  = current_user.calories_consumed | default(0) %}
+{% set remaining = (bmr - consumed) if bmr > consumed else 0 %}
+{% if bmr > 0 %}
+    {% set total_pct = ((consumed / bmr) * 100) | round(0) | int %}
+{% else %}
+    {% set total_pct = 0 %}
+{% endif %}
 <div class="stat-grid">
-  <div class="stat-card teal" style="animation-delay:.05s">
+  <div class="stat-card teal">
+<div class="sc-icon"><i class="bi bi-crosshair"></i></div> <div class="sc-value">{{ bmr | int }}</div>    <div class="sc-label">Objectif kcal</div>
+  </div>
+
+  <div class="stat-card {{ 'rose' if total_pct > 100 else 'amber' }}">
     <div class="sc-icon"><i class="bi bi-fire"></i></div>
-    <div class="sc-value">{{ bmr | int }}</div>
-    <div class="sc-label">kcal / jour</div>
+    <div class="sc-value">{{ consumed | int }}</div>
+    <div class="sc-label">Consommé ({{ total_pct }}%)</div>
   </div>
-  <div class="stat-card amber" style="animation-delay:.1s">
-    <div class="sc-icon"><i class="bi bi-camera"></i></div>
-    <div class="sc-value">{{ history | length }}</div>
-    <div class="sc-label">Scans récents</div>
-  </div>
-  <div class="stat-card {{ 'rose' if meal_pct > 50 else 'teal' }}" style="animation-delay:.15s">
-    <div class="sc-icon"><i class="bi bi-pie-chart"></i></div>
-    <div class="sc-value">{{ meal_pct | int }}%</div>
-    <div class="sc-label">Dernier repas</div>
+
+  <div class="stat-card {{ 'teal' if total_pct < 100 else 'rose' }}">
+    <div class="sc-icon"><i class="bi bi-battery-half"></i></div>
+    <div class="sc-value">{{ remaining | int }}</div>
+    <div class="sc-label">Restant kcal</div>
   </div>
 </div>
 

@@ -1,7 +1,3 @@
-"""
-health.py — Alerts, recommendations and nutritional comparison engine
-"""
-
 from app.nutrition import get_daily_needs, get_meal_summary
 
 
@@ -67,12 +63,12 @@ def generate_alerts(user, results, total_calories):
     meal_pct = _pct(total_calories, bmr)
     if meal_pct > 50:
         alerts.append(
-            f"🔥 Repas très calorique : {int(total_calories)} kcal "
+            f"Repas très calorique : {int(total_calories)} kcal "
             f"= {meal_pct}% de votre besoin journalier ({int(bmr)} kcal)"
         )
     elif meal_pct > 33:
         alerts.append(
-            f"🔥 Repas calorique : {int(total_calories)} kcal "
+            f"Repas calorique : {int(total_calories)} kcal "
             f"({meal_pct}% de votre besoin journalier)"
         )
 
@@ -106,39 +102,39 @@ def generate_recommendations(user, results, total_calories):
     # Calorie load
     if cal['status'] == 'critical':
         recommendations.append(
-            "🔴 Ce repas couvre plus de 75 % de vos besoins caloriques. "
+            "Ce repas couvre plus de 75 % de vos besoins caloriques. "
             "Privilégiez des repas très légers pour le reste de la journée."
         )
     elif cal['status'] == 'high':
         recommendations.append(
-            "🟡 Repas assez calorique. Compensez avec une activité physique "
+            "Repas assez calorique. Compensez avec une activité physique "
             "légère (30 min de marche ≈ 150 kcal)."
         )
     elif cal['status'] == 'too_low':
         recommendations.append(
-            "🔵 Repas peu calorique. Assurez-vous de manger suffisamment "
+            "Repas peu calorique. Assurez-vous de manger suffisamment "
             "sur le reste de la journée."
         )
 
     if prot['status'] == 'too_low':
         recommendations.append(
-            "💪 Protéines insuffisantes. Pensez à ajouter des œufs, du poulet, "
+            "Protéines insuffisantes. Pensez à ajouter des œufs, du poulet, "
             "du poisson ou des légumineuses."
         )
     elif prot['status'] == 'critical':
         recommendations.append(
-            "💪 Très riche en protéines. Hydratez-vous bien pour aider vos reins."
+            "Très riche en protéines. Hydratez-vous bien pour aider vos reins."
         )
 
     if carbs['status'] in ('high', 'critical'):
         if cond['diabetes']:
             recommendations.append(
-                "🩺 Glucides élevés — important avec votre diabète. "
+                "Glucides élevés — important avec votre diabète. "
                 "Préférez des glucides complexes et évitez les sucres rapides."
             )
         else:
             recommendations.append(
-                "🟡 Repas riche en glucides. Équilibrez avec des protéines "
+                "Repas riche en glucides. Équilibrez avec des protéines "
                 "et des fibres pour éviter un pic glycémique."
             )
 
@@ -151,13 +147,13 @@ def generate_recommendations(user, results, total_calories):
             )
         else:
             recommendations.append(
-                "🟡 Repas riche en lipides. Privilégiez les bonnes graisses "
+                "Repas riche en lipides. Privilégiez les bonnes graisses "
                 "(avocat, noix, huile d'olive)."
             )
 
     if not recommendations:
         recommendations.append(
-            "✅ Ce repas est bien équilibré par rapport à vos besoins. Continuez ainsi !"
+            "Ce repas est bien équilibré par rapport à vos besoins. Continuez ainsi !"
         )
 
     return comparison, recommendations

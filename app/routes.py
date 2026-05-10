@@ -19,10 +19,11 @@ def allowed_file(filename):
 
 
 
-# DASHBOARD
 @bp.route('/', methods=['GET', 'POST'])
 @login_required
 def index():
+    if current_user.check_daily_reset():
+        db.session.commit()
     results         = []
     alerts          = []
     comparison      = {}    
@@ -53,12 +54,13 @@ def index():
             if not nutrition:
                 continue
             item['nutrition'] = nutrition
-            item['quantity']  = item.get('count', 1)
-            total_calories   += nutrition['calories'] * item['quantity']
+            item['quantity'] = item.get('count', 1)
+            total_calories += nutrition['calories'] * item['quantity']
             results.append(item)
 
-        alerts = generate_alerts(current_user, results, total_calories)
+        current_user.calories_consumed += total_calories
 
+        alerts = generate_alerts(current_user, results, total_calories)
         comparison, recommendations = generate_recommendations(
             current_user, results, total_calories
         )
@@ -81,6 +83,9 @@ def index():
         .all()
     )
 
+    bmr = current_user.get_besoins_caloriques()
+    meal_pct = (total_calories / bmr * 100) if bmr > 0 else 0
+
     return render_template(
         "index.html",
         results         = results,
@@ -90,9 +95,9 @@ def index():
         history         = history,
         image_url       = image_url,
         total_calories  = total_calories,
+        meal_pct        = meal_pct,  
     )
 
-# LOGIN
 
 @bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -118,7 +123,6 @@ def login():
 
     return render_template("auth.html")
 
-# SIGNUP
 
 @bp.route('/signup', methods=['POST'])
 def signup():
@@ -145,7 +149,6 @@ def signup():
     flash("Compte créé avec succès ! Vous pouvez vous connecter.", "success")
     return redirect(url_for('main.login'))
 
-# LOGOUT
 
 @bp.route('/logout')
 @login_required
@@ -154,7 +157,6 @@ def logout():
     flash("Vous avez été déconnecté.", "info")
     return redirect(url_for('main.login'))
 
-# PROFILE
 
 @bp.route('/profile', methods=['GET', 'POST'])
 @login_required
